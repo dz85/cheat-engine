@@ -1,0 +1,49 @@
+name: Build and attach release assets
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Lazarus
+        shell: powershell
+        run: |
+          choco install lazarus --no-progress -y
+          $lazbuild = Get-ChildItem -Path "C:\lazarus" -Recurse -Filter lazbuild.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $lazbuild) {
+            Write-Error "lazbuild.exe not found after Lazarus installation"
+            exit 1
+          }
+          echo "LAZBUILD=$($lazbuild.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build all Lazarus projects
+        shell: powershell
+        run: |
+          Get-ChildItem -Recurse -Filter *.lpi | ForEach-Object {
+            Write-Host "Building $($_.FullName)"
+            & "$env:LAZBUILD" $_.FullName --build-all
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Archive build output
+        shell: powershell
+        run: |
+          $tag = "${{ github.event.release.tag_name }}"
+          $zip = "CheatEngine-$tag-windows.zip"
+          Compress-Archive -Path "Cheat Engine\bin\*" -DestinationPath $zip
+          echo "ASSET_NAME=$zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Upload asset to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ASSET_NAME }}
