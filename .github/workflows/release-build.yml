@@ -26,7 +26,7 @@ jobs:
           }
           echo "LAZBUILD=$($lazbuild.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Build main Cheat Engine project (required)
+      - name: Build main Cheat Engine project (required, win64)
         shell: powershell
         run: |
           $mainProject = "Cheat Engine/cheatengine.lpi"
@@ -35,14 +35,14 @@ jobs:
             exit 1
           }
 
-          Write-Host "Building required project: $mainProject"
-          & "$env:LAZBUILD" $mainProject --build-all
+          Write-Host "Building required project (win64): $mainProject"
+          & "$env:LAZBUILD" --cpu=x86_64 --os=win64 $mainProject --build-all
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Main project build failed: $mainProject"
             exit $LASTEXITCODE
           }
 
-      - name: Build optional projects (non-blocking)
+      - name: Build optional projects (non-blocking, win64)
         shell: powershell
         run: |
           $optionalProjects = @(
@@ -55,12 +55,29 @@ jobs:
               continue
             }
 
-            Write-Host "Building optional project: $proj"
-            & "$env:LAZBUILD" $proj --build-all
+            Write-Host "Building optional project (win64): $proj"
+            & "$env:LAZBUILD" --cpu=x86_64 --os=win64 $proj --build-all
             if ($LASTEXITCODE -ne 0) {
               Write-Warning "Optional project failed (ignored): $proj (exit code: $LASTEXITCODE)"
             }
           }
+
+      - name: Validate build output
+        shell: powershell
+        run: |
+          $binPath = "Cheat Engine\bin"
+          if (-not (Test-Path $binPath)) {
+            Write-Error "Build output folder not found: $binPath"
+            exit 1
+          }
+
+          $files = Get-ChildItem -Path $binPath -Recurse -File -ErrorAction SilentlyContinue
+          if (-not $files -or $files.Count -eq 0) {
+            Write-Error "Build output folder is empty: $binPath"
+            exit 1
+          }
+
+          Write-Host "Build output check passed: $($files.Count) files found."
 
       - name: Archive build output
         shell: powershell
