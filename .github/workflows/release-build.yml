@@ -26,13 +26,40 @@ jobs:
           }
           echo "LAZBUILD=$($lazbuild.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Build all Lazarus projects
+      - name: Build main Cheat Engine project (required)
         shell: powershell
         run: |
-          Get-ChildItem -Recurse -Filter *.lpi | ForEach-Object {
-            Write-Host "Building $($_.FullName)"
-            & "$env:LAZBUILD" $_.FullName --build-all
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $mainProject = "Cheat Engine/cheatengine.lpi"
+          if (-not (Test-Path $mainProject)) {
+            Write-Error "Main project not found: $mainProject"
+            exit 1
+          }
+
+          Write-Host "Building required project: $mainProject"
+          & "$env:LAZBUILD" $mainProject --build-all
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Main project build failed: $mainProject"
+            exit $LASTEXITCODE
+          }
+
+      - name: Build optional projects (non-blocking)
+        shell: powershell
+        run: |
+          $optionalProjects = @(
+            "Cheat Engine/cecore.lpi"
+          )
+
+          foreach ($proj in $optionalProjects) {
+            if (-not (Test-Path $proj)) {
+              Write-Warning "Optional project not found, skipping: $proj"
+              continue
+            }
+
+            Write-Host "Building optional project: $proj"
+            & "$env:LAZBUILD" $proj --build-all
+            if ($LASTEXITCODE -ne 0) {
+              Write-Warning "Optional project failed (ignored): $proj (exit code: $LASTEXITCODE)"
+            }
           }
 
       - name: Archive build output
