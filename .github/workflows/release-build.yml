@@ -26,6 +26,17 @@ jobs:
           }
           echo "LAZBUILD=$($lazbuild.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Add FPC to PATH
+        shell: powershell
+        run: |
+          $fpcBin = "C:\lazarus\fpc\3.2.2\bin\x86_64-win64"
+          if (Test-Path $fpcBin) {
+            $fpcBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "Added FPC to PATH: $fpcBin"
+          } else {
+            Write-Warning "FPC bin path not found: $fpcBin"
+          }
+
       - name: Build main Cheat Engine project (required, win64)
         shell: powershell
         run: |
@@ -35,8 +46,19 @@ jobs:
             exit 1
           }
 
+          $pcp = Join-Path $env:RUNNER_TEMP "lazarus"
+          New-Item -ItemType Directory -Force -Path $pcp | Out-Null
+
           Write-Host "Building required project (win64): $mainProject"
-          & "$env:LAZBUILD" --cpu=x86_64 --os=win64 $mainProject --build-all
+          & "$env:LAZBUILD" `
+            --cpu=x86_64 --os=win64 `
+            --lazarusdir="C:\lazarus" `
+            --pcp="$pcp" `
+            --build-mode="Release 32-Bit" `
+            --add-package "C:\lazarus\components\lazutils\lazutils.lpk" `
+            --add-package "C:\lazarus\packager\registration\fcl.lpk" `
+            $mainProject --build-all
+
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Main project build failed: $mainProject"
             exit $LASTEXITCODE
@@ -49,6 +71,9 @@ jobs:
             "Cheat Engine/cecore.lpi"
           )
 
+          $pcp = Join-Path $env:RUNNER_TEMP "lazarus"
+          New-Item -ItemType Directory -Force -Path $pcp | Out-Null
+
           foreach ($proj in $optionalProjects) {
             if (-not (Test-Path $proj)) {
               Write-Warning "Optional project not found, skipping: $proj"
@@ -56,7 +81,14 @@ jobs:
             }
 
             Write-Host "Building optional project (win64): $proj"
-            & "$env:LAZBUILD" --cpu=x86_64 --os=win64 $proj --build-all
+            & "$env:LAZBUILD" `
+              --cpu=x86_64 --os=win64 `
+              --lazarusdir="C:\lazarus" `
+              --pcp="$pcp" `
+              --add-package "C:\lazarus\components\lazutils\lazutils.lpk" `
+              --add-package "C:\lazarus\packager\registration\fcl.lpk" `
+              $proj --build-all
+
             if ($LASTEXITCODE -ne 0) {
               Write-Warning "Optional project failed (ignored): $proj (exit code: $LASTEXITCODE)"
             }
