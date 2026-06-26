@@ -55,8 +55,7 @@ jobs:
             --lazarusdir="C:\lazarus" `
             --pcp="$pcp" `
             --build-mode="Release 32-Bit" `
-            --add-package "C:\lazarus\components\lazutils\lazutils.lpk" `
-            --add-package "C:\lazarus\packager\registration\fcl.lpk" `
+            --compiler-options="-FuC:\lazarus\components\lazutils -FuC:\lazarus\lcl\units\x86_64-win64" `
             $mainProject --build-all
 
           if ($LASTEXITCODE -ne 0) {
@@ -85,8 +84,7 @@ jobs:
               --cpu=x86_64 --os=win64 `
               --lazarusdir="C:\lazarus" `
               --pcp="$pcp" `
-              --add-package "C:\lazarus\components\lazutils\lazutils.lpk" `
-              --add-package "C:\lazarus\packager\registration\fcl.lpk" `
+              --compiler-options="-FuC:\lazarus\components\lazutils -FuC:\lazarus\lcl\units\x86_64-win64" `
               $proj --build-all
 
             if ($LASTEXITCODE -ne 0) {
